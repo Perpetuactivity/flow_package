@@ -1,0 +1,21 @@
+[project]
+name = "flow-package"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "liverHawk", email = "hawkyofkn5365@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "imblearn>=0.0",
+    "ipython>=9.0.1",
+    "numpy>=2.2.3",
+    "pandas>=2.2.3",
+    "pathlib>=1.0.1",
+    "scikit-learn>=1.6.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
