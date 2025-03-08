@@ -129,15 +129,15 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
 
         if categorical_index is not None:
             train_resampled = _balance_data(ohe_labels, train)
-            return train_resampled, test
+            return train_resampled, test, label_list
         else:
-            return train, test
+            return train, test, label_list
     else:
         df = df.dropna(how="any")
         train, test = train_test_split(df, test_size=0.2, random_state=42)
 
         if categorical_index is not None:
             train_resampled = _balance_data(ohe_labels, train)
-            return train_resampled, test
+            return train_resampled, test, label_list
         else:
-            return train, test
+            return train, test, label_list
