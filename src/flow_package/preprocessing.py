@@ -78,7 +78,7 @@ def _balance_data(smotenc_labels: list[str], train: pd.DataFrame):
     return train_resampled
 
 
-def data_preprocessing(train_data, test_data = None, categorical_index: list[str] = None):
+def data_preprocessing(train_data, test_data = None, categorical_index: list[str] = None, binary_normal_label: str = None):
     FEATURES_LABELS = CONST.features_labels
 
     # pattern: (path, path) or (path, None)
@@ -95,7 +95,12 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
     # データの前処理
     df = df.filter(items=FEATURES_LABELS + ["Label"])
     label_list = df["Label"].unique()
-    df["Number Label"] = df["Label"].apply(lambda x: np.where(label_list == x)[0][0])
+    if binary_normal_label is not None:
+        if binary_normal_label not in label_list:
+            raise ValueError("正常データのラベルがデータに存在しません。")
+        df["Number Label"] = df["Label"].apply(lambda x: 0 if x == binary_normal_label else 1)
+    else:
+        df["Number Label"] = df["Label"].apply(lambda x: np.where(label_list == x)[0][0])
     df = df.drop(columns=["Label"])
 
     print("データの前処理を開始します。")
