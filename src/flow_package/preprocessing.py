@@ -107,7 +107,16 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
         ohe = OneHotEncoder(sparse_output=False)
         df_ohe = ohe.fit_transform(df[categorical_list])
         df_ohe = pd.DataFrame(df_ohe, columns=ohe.get_feature_names_out(categorical_list))
-        df = pd.concat([df.drop(columns=categorical_list), df_ohe], axis=1)
+
+        # インデックス重複対策
+        df = df.drop(columns=categorical_list).reset_index(drop=True)
+        df_ohe = df_ohe.reset_index(drop=True)
+
+        # カラム名重複対策
+        df_ohe = df_ohe.loc[:, ~df_ohe.columns.duplicated()]
+
+        # 安全な結合
+        df = pd.concat([df, df_ohe], axis=1)
         ohe_labels = ohe.get_feature_names_out(categorical_list).tolist()
     
     print("One-Hot Encodingが完了しました。")
