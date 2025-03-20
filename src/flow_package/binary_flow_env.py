@@ -8,7 +8,7 @@ class InputType:
             self,
             input_features,
             input_labels,
-            normal_label,
+            # normal_label,
             reward_list
     ):
         if len(reward_list) != 2:
@@ -16,7 +16,7 @@ class InputType:
         
         self.input_features = input_features
         self.input_labels = input_labels
-        self.normal_label = normal_label
+        # self.normal_label = normal_label
         self.reward_list = reward_list
 
 class BinaryFlowEnv(gym.Env):
@@ -25,7 +25,7 @@ class BinaryFlowEnv(gym.Env):
 
         self.input_features = input_type.input_features
         self.input_labels = input_type.input_labels
-        self.normal_label = input_type.normal_label
+        # self.normal_label = input_type.normal_label
         self.reward_list = input_type.reward_list
 
         self.action_space = spaces.Discrete(2)
@@ -56,10 +56,10 @@ class BinaryFlowEnv(gym.Env):
     def step(self, action):
         answer = self.input_labels.iloc[self.index]
 
-        if answer == self.normal_label:
-            answer = 0
-        else:
-            answer = 1
+        # if answer == self.normal_label:
+        #     answer = 0
+        # else:
+        #     answer = 1
         
         self.index = self.rng.choice(self.index_array, 1)[0]
 
