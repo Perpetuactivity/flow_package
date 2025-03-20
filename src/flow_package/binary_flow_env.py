@@ -37,7 +37,7 @@ class BinaryFlowEnv(gym.Env):
 
         self.state = {}
         self.data_len = len(self.input_features)
-        self.index_array = np.arange(0, self.data_len - 1)
+        self.index_array = np.arange(self.data_len)
         self.index = self.rng.choice(self.index_array, 1)[0]
 
     def reset(self):
@@ -45,7 +45,7 @@ class BinaryFlowEnv(gym.Env):
 
         self.state = {}
         self.data_len = len(self.input_features)
-        self.index_array = np.arange(0, self.data_len - 1)
+        self.index_array = np.arange(self.data_len)
         self.index = self.rng.choice(self.index_array, 1)[0]
 
         np.delete(self.index_array, self.index)
