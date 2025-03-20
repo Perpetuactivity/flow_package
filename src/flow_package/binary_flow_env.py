@@ -30,14 +30,14 @@ class BinaryFlowEnv(gym.Env):
 
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(len(self.input_features),), dtype=np.float32
+            low=0, high=1, shape=(len(self.input_features.columns),), dtype=np.float32
         )
 
         self.rng = np.random.default_rng(0)
 
         self.state = {}
         self.data_len = len(self.input_features)
-        self.index_array = np.arange(self.data_len)
+        self.index_array = np.arange(0, self.data_len - 1)
         self.index = self.rng.choice(self.index_array, 1)[0]
 
     def reset(self):
@@ -45,7 +45,7 @@ class BinaryFlowEnv(gym.Env):
 
         self.state = {}
         self.data_len = len(self.input_features)
-        self.index_array = np.arange(self.data_len)
+        self.index_array = np.arange(0, self.data_len - 1)
         self.index = self.rng.choice(self.index_array, 1)[0]
 
         np.delete(self.index_array, self.index)
@@ -55,7 +55,7 @@ class BinaryFlowEnv(gym.Env):
     
     def step(self, action):
         answer = self.input_labels.iloc[self.index]
-        
+
         if answer == self.normal_label:
             answer = 0
         else:
