@@ -85,6 +85,7 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
     if test_data is not None:
         # ファイルの読み込み
         df = _read_csv(train_data)
+        train_len = len(df)
         df_test = _read_csv(test_data)
         # データの結合
         df = pd.concat([df, df_test], axis=0)
@@ -135,8 +136,8 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
     print("正規化が完了しました。")
 
     if test_data is not None:
-        train = df.iloc[:len(df) - 1]
-        test = df.iloc[len(df) - 1:]
+        train = df.iloc[:train_len - 1]
+        test = df.iloc[train_len - 1:]
 
         train = train.dropna(how="any")
         test = test.dropna(how="any")
