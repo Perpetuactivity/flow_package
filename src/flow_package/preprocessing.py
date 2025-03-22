@@ -4,10 +4,13 @@ import inspect
 import sys
 import os
 from pathlib import Path
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import train_test_split
+# from sklearn.preprocessing import OneHotEncoder
+# from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTENC
 from .const import Const
+import dask.dataframe as dd
+from dask_ml.model_selection import train_test_split as dask_train_test_split
+from dask_ml.preprocessing import OneHotEncoder as DaskOneHotEncoder
 
 
 CONST = Const()
@@ -45,8 +48,12 @@ def _read_csv(path) -> pd.DataFrame:
     # print(caller_file_path)
 
     # ファイルの読み込み (欠損値の削除)
-    df = pd.read_csv(caller_file_path).replace([np.inf, -np.inf], np.nan).dropna(how="any").dropna(how="all", axis=1)
+    df = dd.read_csv(caller_file_path).replace([np.inf, -np.inf], np.nan)
+    # df = df.dropna(how="any").dropna(how="all", axis=1)
+    df = df.dropna(how="any")
+    na_cols = [ col for col in df.columns if not df[col].isna().all().compute() ]
     df = df.drop_duplicates()
+    df = df[na_cols]
 
     return df
 
@@ -60,7 +67,7 @@ def _min_max_normalization(p, debug: bool = False):
     if min_p == max_p:
         if debug:
             print(f"Warning: Column has all identical values ({min_p}), returning zeros")
-        return pd.Series(0, index=p.index)
+        return dd.Series(0, index=p.index)
     
     # Check for NaN values
     if p.isna().any():
@@ -79,7 +86,7 @@ def _min_max_normalization(p, debug: bool = False):
     return normalized
 
 
-def _balance_data(smotenc_labels: list[str], train: pd.DataFrame):
+def _balance_data(smotenc_labels: list[str], train: dd.DataFrame):
     y_train = train["Number Label"]
     X_train = train.drop(columns=["Number Label"])
 
@@ -89,11 +96,16 @@ def _balance_data(smotenc_labels: list[str], train: pd.DataFrame):
         k_neighbors=3,
         sampling_strategy="minority",
     )
-    X_train, y_train = smote_nc.fit_resample(X_train, y_train)
 
-    X_resampled = pd.DataFrame(X_train)
-    y_resampled = pd.DataFrame(y_train, columns=["Number Label"])
-    train_resampled = pd.concat([X_resampled, y_resampled], axis=1)
+    X_train, y_train = train.map_partitions(
+        lambda df: smote_nc.fit_resample(df.drop(columns=["Number Label"]), df["Number Label"]),
+        meta=(X_train, y_train),
+    )
+    # X_train, y_train = smote_nc.fit_resample(X_train, y_train)
+
+    X_resampled = dd.DataFrame(X_train)
+    y_resampled = dd.DataFrame(y_train, columns=["Number Label"])
+    train_resampled = dd.concat([X_resampled, y_resampled], axis=1)
 
     print("データのバランス調整が完了しました。")
 
@@ -114,7 +126,7 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
         print("\t- テストデータ")
         df_test = _read_csv(test_data)
         # データの結合
-        df = pd.concat([df, df_test], axis=0)
+        df = dd.concat([df, df_test], axis=0)
     else:
         # ファイルの読み込み
         print("\t- 学習データ")
@@ -123,12 +135,16 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
     print("<データの読み込みが完了しました。>")
     
     # データの前処理
-    df = df.filter(items=FEATURES_LABELS + ["Label"])
-    label_list = df["Label"].unique()
+    # df = df.filter(items=FEATURES_LABELS + ["Label"])
+    df = df[FEATURES_LABELS + ["Label"]]
+    label_list = df["Label"].unique().compute()
     if binary_normal_label is not None:
-        if binary_normal_label not in label_list:
+        for label in label_list:
+            if label == binary_normal_label:
+                break
+        else:
             raise ValueError("正常データのラベルがデータに存在しません。")
-        df["Number Label"] = df["Label"].apply(lambda x: 0 if x == binary_normal_label else 1)
+        df["Number Label"] = df["Label"].apply(lambda x: 0 if x == binary_normal_label else 1) # TODO: repair
     else:
         df["Number Label"] = df["Label"].apply(lambda x: np.where(label_list == x)[0][0])
     df = df.drop(columns=["Label"])
@@ -138,9 +154,9 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
     categorical_list = [label for label in categorical_index]
 
     if categorical_index is not None:
-        ohe = OneHotEncoder(sparse_output=False)
+        ohe = DaskOneHotEncoder(sparse_output=False)
         df_ohe = ohe.fit_transform(df[categorical_list])
-        df_ohe = pd.DataFrame(df_ohe, columns=ohe.get_feature_names_out(categorical_list))
+        df_ohe = dd.DataFrame(df_ohe, columns=ohe.get_feature_names_out(categorical_list))
 
         # インデックス重複対策
         df = df.drop(columns=categorical_list).reset_index(drop=True)
@@ -150,7 +166,7 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
         df_ohe = df_ohe.loc[:, ~df_ohe.columns.duplicated()]
 
         # 安全な結合
-        df = pd.concat([df, df_ohe], axis=1)
+        df = dd.concat([df, df_ohe], axis=1)
         ohe_labels = ohe.get_feature_names_out(categorical_list).tolist()
     
     print("<One-Hot Encodingが完了しました>")
@@ -196,7 +212,7 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
             return train, test, label_list
     else:
         df = df.dropna(how="any")
-        train, test = train_test_split(df, test_size=0.2, random_state=42)
+        train, test = dask_train_test_split(df, test_size=0.2, random_state=42)
 
         if categorical_index is not None:
             print("- データのバランス調整")
