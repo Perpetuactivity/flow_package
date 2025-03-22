@@ -52,10 +52,28 @@ def _read_csv(path) -> pd.DataFrame:
 
 
 def _min_max_normalization(p):
-    # 正規化
+    """Normalize values to 0-1 range with better handling of edge cases"""
     min_p = p.min()
     max_p = p.max()
-    return (p - min_p) / (max_p - min_p)
+    
+    # Check if min == max (would cause division by zero)
+    if min_p == max_p:
+        print(f"Warning: Column has all identical values ({min_p}), returning zeros")
+        return pd.Series(0, index=p.index)
+    
+    # Check for NaN values
+    if p.isna().any():
+        print(f"Warning: Column contains NaN values before normalization")
+    
+    # Perform normalization
+    normalized = (p - min_p) / (max_p - min_p)
+    
+    # Final check for infinite values that might have been created
+    if np.isinf(normalized).any():
+        print(f"Warning: Normalization produced infinite values, replacing with NaN")
+        normalized = normalized.replace([np.inf, -np.inf], np.nan)
+    
+    return normalized
 
 
 def _balance_data(smotenc_labels: list[str], train: pd.DataFrame):
@@ -81,17 +99,24 @@ def _balance_data(smotenc_labels: list[str], train: pd.DataFrame):
 def data_preprocessing(train_data, test_data = None, categorical_index: list[str] = None, binary_normal_label: str = None):
     FEATURES_LABELS = CONST.features_labels
 
+    print("データの前処理を開始します。")
+    print("- データの読み込み")
     # pattern: (path, path) or (path, None)
     if test_data is not None:
         # ファイルの読み込み
+        print("\t- 学習データ")
         df = _read_csv(train_data)
         train_len = len(df)
+        print("\t- テストデータ")
         df_test = _read_csv(test_data)
         # データの結合
         df = pd.concat([df, df_test], axis=0)
     else:
         # ファイルの読み込み
+        print("\t- 学習データ")
         df = _read_csv(train_data)
+    
+    print("<データの読み込みが完了しました。>")
     
     # データの前処理
     df = df.filter(items=FEATURES_LABELS + ["Label"])
@@ -104,8 +129,7 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
         df["Number Label"] = df["Label"].apply(lambda x: np.where(label_list == x)[0][0])
     df = df.drop(columns=["Label"])
 
-    print("データの前処理を開始します。")
-
+    print("- one-hot encoding")
     # One-Hot Encoding
     categorical_list = [label for label in categorical_index]
 
@@ -125,15 +149,31 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
         df = pd.concat([df, df_ohe], axis=1)
         ohe_labels = ohe.get_feature_names_out(categorical_list).tolist()
     
-    print("One-Hot Encodingが完了しました。")
+    print("<One-Hot Encodingが完了しました>")
 
     # normalization_label = FEATURES_LABELS - categorical_index
     normalization_label = [label for label in FEATURES_LABELS if label not in categorical_list]
+    print("- 正規化")
     # 正規化
     for label in normalization_label:
-        df.loc[:, label] = _min_max_normalization(df[label]).astype(df[label].dtype)
+        # Replace the current line with:
+        normalized_values = _min_max_normalization(df[label])
+        # Check if original column was integer type
+        if np.issubdtype(df[label].dtype, np.integer):
+            # For integer columns, we need to handle NaNs before conversion
+            print(f"Column {label} has integer type, checking for NaNs before conversion")
+            if normalized_values.isna().any():
+                # Either fill NaNs or keep as float
+                print(f"Warning: NaNs found in normalized values for {label}, keeping as float")
+                df.loc[:, label] = normalized_values
+            else:
+                # Safe to convert to original type
+                df.loc[:, label] = normalized_values.astype(df[label].dtype)
+        else:
+            # For float columns, no issue with NaNs
+            df.loc[:, label] = normalized_values
     
-    print("正規化が完了しました。")
+    print("<正規化が完了しました>")
 
     if test_data is not None:
         train = df.iloc[:train_len - 1]
@@ -143,6 +183,7 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
         test = test.dropna(how="any")
 
         if categorical_index is not None:
+            print("- データのバランス調整")
             train_resampled = _balance_data(ohe_labels, train)
             return train_resampled, test, label_list
         else:
@@ -152,6 +193,7 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
         train, test = train_test_split(df, test_size=0.2, random_state=42)
 
         if categorical_index is not None:
+            print("- データのバランス調整")
             train_resampled = _balance_data(ohe_labels, train)
             return train_resampled, test, label_list
         else:
