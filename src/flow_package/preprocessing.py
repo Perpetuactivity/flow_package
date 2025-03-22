@@ -51,26 +51,29 @@ def _read_csv(path) -> pd.DataFrame:
     return df
 
 
-def _min_max_normalization(p):
+def _min_max_normalization(p, debug: bool = False):
     """Normalize values to 0-1 range with better handling of edge cases"""
     min_p = p.min()
     max_p = p.max()
     
     # Check if min == max (would cause division by zero)
     if min_p == max_p:
-        print(f"Warning: Column has all identical values ({min_p}), returning zeros")
+        if debug:
+            print(f"Warning: Column has all identical values ({min_p}), returning zeros")
         return pd.Series(0, index=p.index)
     
     # Check for NaN values
     if p.isna().any():
-        print(f"Warning: Column contains NaN values before normalization")
+        if debug:
+            print(f"Warning: Column contains NaN values before normalization")
     
     # Perform normalization
     normalized = (p - min_p) / (max_p - min_p)
     
     # Final check for infinite values that might have been created
     if np.isinf(normalized).any():
-        print(f"Warning: Normalization produced infinite values, replacing with NaN")
+        if debug:
+            print(f"Warning: Normalization produced infinite values, replacing with NaN")
         normalized = normalized.replace([np.inf, -np.inf], np.nan)
     
     return normalized
@@ -83,7 +86,8 @@ def _balance_data(smotenc_labels: list[str], train: pd.DataFrame):
     smote_nc = SMOTENC(
         categorical_features=[X_train.columns.get_loc(label) for label in smotenc_labels],
         random_state=42,
-        k_neighbors=3
+        k_neighbors=3,
+        sampling_strategy="minority",
     )
     X_train, y_train = smote_nc.fit_resample(X_train, y_train)
 
@@ -96,7 +100,7 @@ def _balance_data(smotenc_labels: list[str], train: pd.DataFrame):
     return train_resampled
 
 
-def data_preprocessing(train_data, test_data = None, categorical_index: list[str] = None, binary_normal_label: str = None):
+def data_preprocessing(train_data, test_data = None, categorical_index: list[str] = None, binary_normal_label: str = None, debug: bool = False):
     FEATURES_LABELS = CONST.features_labels
 
     print("データの前処理を開始します。")
@@ -157,14 +161,16 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
     # 正規化
     for label in normalization_label:
         # Replace the current line with:
-        normalized_values = _min_max_normalization(df[label])
+        normalized_values = _min_max_normalization(df[label], debug=debug)
         # Check if original column was integer type
         if np.issubdtype(df[label].dtype, np.integer):
             # For integer columns, we need to handle NaNs before conversion
-            print(f"Column {label} has integer type, checking for NaNs before conversion")
+            if debug:
+                print(f"Column {label} has integer type, checking for NaNs before conversion")
             if normalized_values.isna().any():
                 # Either fill NaNs or keep as float
-                print(f"Warning: NaNs found in normalized values for {label}, keeping as float")
+                if debug:
+                    print(f"Warning: NaNs found in normalized values for {label}, keeping as float")
                 df.loc[:, label] = normalized_values
             else:
                 # Safe to convert to original type

@@ -6,11 +6,10 @@ readme = "README.md"
 authors = [
     { name = "liverHawk", email = "hawkyofkn5365@gmail.com" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
     "gymnasium>=1.1.1",
     "imblearn>=0.0",
-    "ipython>=9.0.1",
     "numpy>=2.2.3",
     "pandas>=2.2.3",
     "pathlib>=1.0.1",
