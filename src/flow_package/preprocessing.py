@@ -52,10 +52,28 @@ def _read_csv(path) -> pd.DataFrame:
 
 
 def _min_max_normalization(p):
-    # 正規化
+    """Normalize values to 0-1 range with better handling of edge cases"""
     min_p = p.min()
     max_p = p.max()
-    return (p - min_p) / (max_p - min_p)
+    
+    # Check if min == max (would cause division by zero)
+    if min_p == max_p:
+        print(f"Warning: Column has all identical values ({min_p}), returning zeros")
+        return pd.Series(0, index=p.index)
+    
+    # Check for NaN values
+    if p.isna().any():
+        print(f"Warning: Column contains NaN values before normalization")
+    
+    # Perform normalization
+    normalized = (p - min_p) / (max_p - min_p)
+    
+    # Final check for infinite values that might have been created
+    if np.isinf(normalized).any():
+        print(f"Warning: Normalization produced infinite values, replacing with NaN")
+        normalized = normalized.replace([np.inf, -np.inf], np.nan)
+    
+    return normalized
 
 
 def _balance_data(smotenc_labels: list[str], train: pd.DataFrame):
@@ -131,7 +149,23 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
     normalization_label = [label for label in FEATURES_LABELS if label not in categorical_list]
     # 正規化
     for label in normalization_label:
-        df.loc[:, label] = _min_max_normalization(df[label]).astype(df[label].dtype)
+        print(f"{label}の正規化を開始します。(type: {df[label].dtype})")
+        # Replace the current line with:
+        normalized_values = _min_max_normalization(df[label])
+        # Check if original column was integer type
+        if np.issubdtype(df[label].dtype, np.integer):
+            # For integer columns, we need to handle NaNs before conversion
+            print(f"Column {label} has integer type, checking for NaNs before conversion")
+            if normalized_values.isna().any():
+                # Either fill NaNs or keep as float
+                print(f"Warning: NaNs found in normalized values for {label}, keeping as float")
+                df.loc[:, label] = normalized_values
+            else:
+                # Safe to convert to original type
+                df.loc[:, label] = normalized_values.astype(df[label].dtype)
+        else:
+            # For float columns, no issue with NaNs
+            df.loc[:, label] = normalized_values
     
     print("正規化が完了しました。")
 
@@ -143,6 +177,7 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
         test = test.dropna(how="any")
 
         if categorical_index is not None:
+            print("データのバランス調整を開始します。")
             train_resampled = _balance_data(ohe_labels, train)
             return train_resampled, test, label_list
         else:
