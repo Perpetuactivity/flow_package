@@ -10,7 +10,7 @@ from imblearn.over_sampling import SMOTENC
 from .const import Const
 import dask.dataframe as dd
 from dask_ml.model_selection import train_test_split as dask_train_test_split
-from dask_ml.preprocessing import OneHotEncoder as DaskOneHotEncoder
+from dask_ml.preprocessing import MinMaxScaler, OneHotEncoder as DaskOneHotEncoder
 
 
 CONST = Const()
@@ -58,50 +58,37 @@ def _read_csv(path) -> pd.DataFrame:
     return df
 
 
-def _min_max_normalization(p, debug: bool = False):
-    """Normalize values to 0-1 range with better handling of edge cases"""
-    min_p = p.min()
-    max_p = p.max()
-    
-    # Check if min == max (would cause division by zero)
-    if min_p == max_p:
-        if debug:
-            print(f"Warning: Column has all identical values ({min_p}), returning zeros")
-        return dd.Series(0, index=p.index)
-    
-    # Check for NaN values
-    if p.isna().any():
-        if debug:
-            print(f"Warning: Column contains NaN values before normalization")
-    
-    # Perform normalization
-    normalized = (p - min_p) / (max_p - min_p)
-    
-    # Final check for infinite values that might have been created
-    if np.isinf(normalized).any():
-        if debug:
-            print(f"Warning: Normalization produced infinite values, replacing with NaN")
-        normalized = normalized.replace([np.inf, -np.inf], np.nan)
-    
-    return normalized
-
-
 def _balance_data(smotenc_labels: list[str], train: dd.DataFrame):
-    y_train = train["Number Label"]
-    X_train = train.drop(columns=["Number Label"])
+    while True:
+        ddf = dd.from_pandas(train, npartitions=3)
+        for i in range(ddf.npartitions):
+            partition = ddf.get_partition(i).compute()[smotenc_labels].nunique().values
+            if np.any(partition == 1):
+                break
+        else:
+            break
+
+    print("SMOTE-NCの適用を開始します。")
+            
+    one_partition = ddf.get_partition(0).compute().drop(columns=["Number Label"])
+
+    feature_index = [
+        one_partition.columns.get_loc(label) for label in smotenc_labels
+    ]
 
     smote_nc = SMOTENC(
-        categorical_features=[X_train.columns.get_loc(label) for label in smotenc_labels],
+        categorical_features=feature_index,
         random_state=42,
         k_neighbors=3,
-        sampling_strategy="minority",
     )
 
     X_train, y_train = train.map_partitions(
         lambda df: smote_nc.fit_resample(df.drop(columns=["Number Label"]), df["Number Label"]),
-        meta=(X_train, y_train),
-    )
-    # X_train, y_train = smote_nc.fit_resample(X_train, y_train)
+        meta={
+            "X_train": "object",
+            "y_train": "object",
+        },
+    ).compute()
 
     X_resampled = dd.DataFrame(X_train)
     y_resampled = dd.DataFrame(y_train, columns=["Number Label"])
@@ -113,10 +100,10 @@ def _balance_data(smotenc_labels: list[str], train: dd.DataFrame):
 
 
 def data_preprocessing(train_data, test_data = None, categorical_index: list[str] = None, binary_normal_label: str = None, debug: bool = False):
-    FEATURES_LABELS = CONST.features_labels
 
     print("データの前処理を開始します。")
     print("- データの読み込み")
+
     # pattern: (path, path) or (path, None)
     if test_data is not None:
         # ファイルの読み込み
@@ -133,20 +120,26 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
         df = _read_csv(train_data)
     
     print("<データの読み込みが完了しました。>")
-    
+
+
+def _preprocess(df, train_len, categorical_index: list[str] = None, binary_normal_label: str = None):
+    FEATURES_LABELS = CONST.features_labels
     # データの前処理
-    # df = df.filter(items=FEATURES_LABELS + ["Label"])
     df = df[FEATURES_LABELS + ["Label"]]
+    df = df.dropna(how="any")
+    df = df.drop_duplicates()
+
     label_list = df["Label"].unique().compute()
+
     if binary_normal_label is not None:
         for label in label_list:
             if label == binary_normal_label:
                 break
         else:
             raise ValueError("正常データのラベルがデータに存在しません。")
-        df["Number Label"] = df["Label"].apply(lambda x: 0 if x == binary_normal_label else 1) # TODO: repair
+        df["Number Label"] = (train["Label"] == binary_normal_label).astype(int)
     else:
-        df["Number Label"] = df["Label"].apply(lambda x: np.where(label_list == x)[0][0])
+        df["Number Label"] = (label_list.index.get_loc(df["Label"])).astype(int)
     df = df.drop(columns=["Label"])
 
     print("- one-hot encoding")
@@ -154,52 +147,34 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
     categorical_list = [label for label in categorical_index]
 
     if categorical_index is not None:
-        ohe = DaskOneHotEncoder(sparse_output=False)
+        ohe = DaskOneHotEncoder(
+            categorical_features=categorical_list,
+            sparse_output=False
+        )
+        df = df.categorize(columns=categorical_list)
         df_ohe = ohe.fit_transform(df[categorical_list])
-        df_ohe = dd.DataFrame(df_ohe, columns=ohe.get_feature_names_out(categorical_list))
 
-        # インデックス重複対策
-        df = df.drop(columns=categorical_list).reset_index(drop=True)
-        df_ohe = df_ohe.reset_index(drop=True)
-
-        # カラム名重複対策
-        df_ohe = df_ohe.loc[:, ~df_ohe.columns.duplicated()]
-
-        # 安全な結合
+        ohe_labels = df_ohe.columns
+        df = df.drop(columns=categorical_list)
         df = dd.concat([df, df_ohe], axis=1)
-        ohe_labels = ohe.get_feature_names_out(categorical_list).tolist()
     
     print("<One-Hot Encodingが完了しました>")
 
     # normalization_label = FEATURES_LABELS - categorical_index
     normalization_label = [label for label in FEATURES_LABELS if label not in categorical_list]
     print("- 正規化")
+    df_compute = df.compute()
     # 正規化
+    scaler = MinMaxScaler()
     for label in normalization_label:
-        # Replace the current line with:
-        normalized_values = _min_max_normalization(df[label], debug=debug)
-        # Check if original column was integer type
-        if np.issubdtype(df[label].dtype, np.integer):
-            # For integer columns, we need to handle NaNs before conversion
-            if debug:
-                print(f"Column {label} has integer type, checking for NaNs before conversion")
-            if normalized_values.isna().any():
-                # Either fill NaNs or keep as float
-                if debug:
-                    print(f"Warning: NaNs found in normalized values for {label}, keeping as float")
-                df.loc[:, label] = normalized_values
-            else:
-                # Safe to convert to original type
-                df.loc[:, label] = normalized_values.astype(df[label].dtype)
-        else:
-            # For float columns, no issue with NaNs
-            df.loc[:, label] = normalized_values
+        df_compute[label] = scaler.fit_transform(df_compute[label].values.reshape(-1, 1))
     
+    df_compute = df_compute.dropna(how="any").drop_duplicates()
     print("<正規化が完了しました>")
 
     if test_data is not None:
-        train = df.iloc[:train_len - 1]
-        test = df.iloc[train_len - 1:]
+        train = df_compute.iloc[:train_len - 1]
+        test = df_compute.iloc[train_len - 1:]
 
         train = train.dropna(how="any")
         test = test.dropna(how="any")
@@ -211,7 +186,7 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
         else:
             return train, test, label_list
     else:
-        df = df.dropna(how="any")
+        df = df_compute.dropna(how="any")
         train, test = dask_train_test_split(df, test_size=0.2, random_state=42)
 
         if categorical_index is not None:
