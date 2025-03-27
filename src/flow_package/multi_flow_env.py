@@ -13,7 +13,7 @@ class InputType:
     ):
         label_num = len(input_labels.unique())
         if len(reward_list) != label_num or len(reward_list[0]) != label_num:
-            raise ValueError("The length of the reward_list is not the same as the number of labels.")
+            raise ValueError("The length of the reward_list is not the same as the number '{}' of labels.".format(label_num))
 
         self.input_features = input_features
         self.input_labels = input_labels
