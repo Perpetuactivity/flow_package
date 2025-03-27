@@ -122,9 +122,7 @@ def data_preprocessing(train_data, test_data = None, categorical_index: list[str
 
     preprocessing_from_data(df, train_len, categorical_index=categorical_index, binary_normal_label=binary_normal_label, balance=balance, debug=debug)
 
-
-def preprocessing_from_data(df: pd.DataFrame, train_len: int = None, categorical_index: list[str] = None, binary_normal_label: str = None, balance: bool = False, debug: bool = False):
-    # データの前処理
+def filter_numberic(df: pd.DataFrame, debug: bool = False, binary_normal_label: str = None) -> pd.DataFrame:
     df = df.filter(items=FEATURES_LABELS + ["Label"])
     label_list = df["Label"].unique()
     if binary_normal_label is not None:
@@ -135,33 +133,31 @@ def preprocessing_from_data(df: pd.DataFrame, train_len: int = None, categorical
         df["Number Label"] = df["Label"].apply(lambda x: np.where(label_list == x)[0][0])
     df = df.drop(columns=["Label"])
 
-    print("=", end="")
+    return df, label_list
 
-    # print("- one-hot encoding")
-    # One-Hot Encoding
-    categorical_list = [label for label in categorical_index]
 
-    if categorical_index is not None:
-        ohe = OneHotEncoder(sparse_output=False)
-        df_ohe = ohe.fit_transform(df[categorical_list])
-        df_ohe = pd.DataFrame(df_ohe, columns=ohe.get_feature_names_out(categorical_list))
+def ohe_hot_encoding(df: pd.DataFrame, categorical_list: list[str] = None) -> pd.DataFrame:
+    ohe = OneHotEncoder(sparse_output=False)
+    df_ohe = ohe.fit_transform(df[categorical_list])
+    df_ohe = pd.DataFrame(df_ohe, columns=ohe.get_feature_names_out(categorical_list))
 
-        # インデックス重複対策
-        df = df.drop(columns=categorical_list).reset_index(drop=True)
-        df_ohe = df_ohe.reset_index(drop=True)
+    # インデックス重複対策
+    df = df.drop(columns=categorical_list).reset_index(drop=True)
+    df_ohe = df_ohe.reset_index(drop=True)
 
-        # カラム名重複対策
-        df_ohe = df_ohe.loc[:, ~df_ohe.columns.duplicated()]
+    # カラム名重複対策
+    df_ohe = df_ohe.loc[:, ~df_ohe.columns.duplicated()]
 
-        # 安全な結合
-        df = pd.concat([df, df_ohe], axis=1)
-        ohe_labels = ohe.get_feature_names_out(categorical_list).tolist()
+    # 安全な結合
+    df = pd.concat([df, df_ohe], axis=1)
+    ohe_labels = ohe.get_feature_names_out(categorical_list).tolist()
     
-    print("=", end="")
+    return df, ohe_labels
 
+
+def normalization_label(df: pd.DataFrame, categorical_list: list[str] = None, debug: bool = False) -> list[str]:
     # normalization_label = FEATURES_LABELS - categorical_index
     normalization_label = [label for label in FEATURES_LABELS if label not in categorical_list]
-    # print("- 正規化")
     # 正規化
     for label in normalization_label:
         # Replace the current line with:
@@ -182,6 +178,27 @@ def preprocessing_from_data(df: pd.DataFrame, train_len: int = None, categorical
         else:
             # For float columns, no issue with NaNs
             df.loc[:, label] = normalized_values
+    
+    return df
+
+
+def preprocessing_from_data(df: pd.DataFrame, train_len: int = None, categorical_index: list[str] = None, binary_normal_label: str = None, balance: bool = False, debug: bool = False):
+    # データの前処理
+
+    df, label_list = filter_numberic(df, debug=debug, binary_normal_label=binary_normal_label)
+    
+    print("=", end="")
+
+    # print("- one-hot encoding")
+    # One-Hot Encoding
+    categorical_list = [label for label in categorical_index]
+
+    if categorical_index is not None:
+        df, ohe_labels = ohe_hot_encoding(df, categorical_list=categorical_list)
+    
+    print("=", end="")
+
+    df = normalization_label(df, categorical_list=categorical_list, debug=debug)
     
     print("=", end="")
 
