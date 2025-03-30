@@ -181,8 +181,7 @@ def normalization_label(df: pd.DataFrame, categorical_list: list[str] = None, de
     
     return df
 
-
-def preprocessing_from_data(df: pd.DataFrame, train_len: int = None, categorical_index: list[str] = None, binary_normal_label: str = None, balance: bool = False, debug: bool = False):
+def preprocessing_until_all(df: pd.DataFrame, categorical_index: list[str] = None, binary_normal_label: str = None, debug: bool = False):
     # データの前処理
 
     df, label_list = filter_numberic(df, debug=debug, binary_normal_label=binary_normal_label)
@@ -200,7 +199,15 @@ def preprocessing_from_data(df: pd.DataFrame, train_len: int = None, categorical
 
     df = normalization_label(df, categorical_list=categorical_list, debug=debug)
     
-    print("=", end="")
+    print("= done")
+    
+    return df, label_list, ohe_labels
+
+
+def preprocessing_from_data(df: pd.DataFrame, train_len: int = None, categorical_index: list[str] = None, binary_normal_label: str = None, balance: bool = False, debug: bool = False):
+    # データの前処理
+
+    df, label_list, ohe_labels = preprocessing_until_all(df, categorical_index=categorical_index, binary_normal_label=binary_normal_label, debug=debug)
 
     if train_len is not None:
         train = df.iloc[:train_len - 1]
