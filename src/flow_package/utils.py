@@ -4,8 +4,8 @@ import numpy as np
 
 def to_tensor(state):
     # state -> tensor
-    port = int(state[1])
-    protocol = int(state[2])
+    port = np.int64(state[1])
+    protocol = np.int64(state[2])
     other = np.insert(state[3:], 0, state[0])
 
     tensor_port = torch.tensor([port], dtype=torch.long)
