@@ -157,7 +157,7 @@ def ohe_hot_encoding(df: pd.DataFrame, categorical_list: list[str] = None) -> pd
 
 def normalization_label(df: pd.DataFrame, categorical_list: list[str] = None, debug: bool = False) -> list[str]:
     # normalization_label = FEATURES_LABELS - categorical_index
-    normalization_label = [label for label in FEATURES_LABELS if label not in categorical_list]
+    normalization_label = [label for label in FEATURES_LABELS if label not in ["Protocol", "Destination Port"]]
     # 正規化
     for label in normalization_label:
         # Replace the current line with:
