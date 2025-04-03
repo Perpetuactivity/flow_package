@@ -2,6 +2,7 @@ from gymnasium.envs.registration import register
 
 from .const import *
 from .preprocessing import *
+from .utils import *
 
 from .binary_flow_env import *
 from .multi_flow_env import *
