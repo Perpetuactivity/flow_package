@@ -30,7 +30,7 @@ class MultipleFlowEnv(gym.Env):
 
         self.action_space = spaces.Discrete(len(self.reward_list))
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(len(self.input_features),), dtype=np.float32
+            low=0, high=1, shape=(len(self.input_features.columns),), dtype=np.float32
         )
 
         self.rng = np.random.default_rng(0)
