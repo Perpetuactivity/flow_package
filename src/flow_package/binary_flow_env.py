@@ -66,16 +66,7 @@ class BinaryFlowEnv(gym.Env):
         reward = self.reward_list[0] if action == answer else self.reward_list[1]
 
         # TP, FP, TN, FN
-        if action == answer:
-            if action == 1:
-                matrix_position = (1, 1)
-            else:
-                matrix_position = (0, 0)
-        else:
-            if action == 1:
-                matrix_position = (1, 0)
-            else:
-                matrix_position = (0, 1)
+        matrix_position = (action, answer)
         
         info = {
             "matrix_position": matrix_position,
