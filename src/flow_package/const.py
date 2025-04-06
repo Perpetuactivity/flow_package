@@ -113,9 +113,9 @@ class Const(object):
         "Packet Length Mean": np.float32,
         "Packet Length Std": np.float32,
         "Packet Length Variance": np.float32,
-        "SYN Flag Count": np.float32,
-        "PSH Flag Count": np.float32,
-        "ACK Flag Count": np.float32,
+        "SYN Flag Count": np.int64,
+        "PSH Flag Count": np.int64,
+        "ACK Flag Count": np.int64,
         "Down/Up Ratio": np.float32,
         "Average Packet Size": np.float32,
         "Avg Fwd Segment Size": np.float32,
@@ -138,6 +138,7 @@ class Const(object):
         "Idle Std": np.float32,
         "Idle Max": np.float32,
         "Idle Min": np.float32,
+        "Number Label": np.int64
     }
 
     @property

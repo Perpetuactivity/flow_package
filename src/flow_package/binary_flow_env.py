@@ -3,21 +3,28 @@ from gymnasium import spaces
 import numpy as np
 import random
 
+ERROR_LABEL = "The length of the reward_list is " \
+    "not the same as the number of labels"
+
+
 class InputType:
     def __init__(
             self,
             input_features,
             input_labels,
             # normal_label,
-            reward_list
+            reward_list,
+            type_env
     ):
         if len(reward_list) != 2:
-            raise ValueError("The length of the reward_list is not the same as the number of labels")
-        
+            raise ValueError(ERROR_LABEL)
+
         self.input_features = input_features
         self.input_labels = input_labels
         # self.normal_label = normal_label
         self.reward_list = reward_list
+        self.type_env = type_env
+
 
 class BinaryFlowEnv(gym.Env):
     def __init__(self, input_type: InputType):
@@ -30,7 +37,8 @@ class BinaryFlowEnv(gym.Env):
 
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(len(self.input_features.columns),), dtype=np.float32
+            low=0, high=1, shape=(len(self.input_features.columns),),
+            dtype=np.float32
         )
 
         self.rng = np.random.default_rng(0)
@@ -38,7 +46,10 @@ class BinaryFlowEnv(gym.Env):
         self.state = {}
         self.data_len = len(self.input_features)
         self.index_array = np.arange(self.data_len)
-        self.index = self.rng.choice(self.index_array, 1)[0]
+        if self.type_env is None:
+            self.index = self.rng.choice(self.index_array, 1)[0]
+        else:
+            self.index = 0
 
     def reset(self):
         super().reset()
@@ -52,7 +63,7 @@ class BinaryFlowEnv(gym.Env):
         self.state = self.input_features.iloc[self.index].values
 
         return self.state
-    
+
     def step(self, action):
         answer = self.input_labels.iloc[self.index]
 
@@ -60,14 +71,16 @@ class BinaryFlowEnv(gym.Env):
         #     answer = 0
         # else:
         #     answer = 1
-        
-        self.index = self.rng.choice(self.index_array, 1)[0]
+        if self.type_env is None:
+            self.index = self.rng.choice(self.index_array, 1)[0]
+        else:
+            self.index += 1
 
-        reward = self.reward_list[0] if action == answer else self.reward_list[1]
+        reward = self.reward_list[int(action != answer)]
 
         # TP, FP, TN, FN
         matrix_position = (action, answer)
-        
+
         info = {
             "matrix_position": matrix_position,
             "action": action,
@@ -79,11 +92,14 @@ class BinaryFlowEnv(gym.Env):
         except IndexError:
             self.index = 0
             observation = self.input_features.iloc[self.index].values
-        
-        terminated = random.random() < 0.01
+
+        if self.type_env is not None:
+            terminated = self.index == 0
+        else:
+            terminated = random.random() < 0.01
 
         return observation, reward, terminated, False, info
-    
+
     def render(self, mode="human"):
         pass
 
