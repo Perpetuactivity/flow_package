@@ -14,7 +14,7 @@ class InputType:
             input_labels,
             # normal_label,
             reward_list,
-            type_env
+            type_env=None
     ):
         if len(reward_list) != 2:
             raise ValueError(ERROR_LABEL)

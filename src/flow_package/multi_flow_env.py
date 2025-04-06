@@ -9,7 +9,8 @@ class InputType:
             self,
             input_features,
             input_labels,
-            reward_list
+            reward_list,
+            type_env=None
     ):
         # label_num = len(input_labels.unique())
         # if len(reward_list) != label_num or len(reward_list[0]) != label_num:
@@ -18,6 +19,7 @@ class InputType:
         self.input_features = input_features
         self.input_labels = input_labels
         self.reward_list = reward_list
+        self.type_env = type_env
 
 
 class MultipleFlowEnv(gym.Env):
@@ -27,6 +29,7 @@ class MultipleFlowEnv(gym.Env):
         self.input_features = input_type.input_features
         self.input_labels = input_type.input_labels
         self.reward_list = input_type.reward_list
+        self.type_env = input_type.type_env
 
         self.action_space = spaces.Discrete(len(self.input_labels.unique()))
         self.observation_space = spaces.Box(
@@ -38,7 +41,11 @@ class MultipleFlowEnv(gym.Env):
         self.state = {}
         self.data_len = len(self.input_features)
         self.index_array = np.arange(self.data_len)
-        self.index = self.rng.choice(self.index_array, 1)[0]
+
+        if self.type_env is None:
+            self.index = self.rng.choice(self.index_array, 1)[0]
+        else:
+            self.index = 0
 
     def reset(self):
         super().reset()
@@ -46,7 +53,11 @@ class MultipleFlowEnv(gym.Env):
         self.state = {}
         self.data_len = len(self.input_features)
         self.index_array = np.arange(self.data_len)
-        self.index = self.rng.choice(self.index_array, 1)[0]
+
+        if self.type_env is None:
+            self.index = self.rng.choice(self.index_array, 1)[0]
+        else:
+            self.index = 0
 
         np.delete(self.index_array, self.index)
         self.state = self.input_features.iloc[self.index].values
@@ -56,7 +67,10 @@ class MultipleFlowEnv(gym.Env):
     def step(self, action):
         answer = self.input_labels.iloc[self.index]
         
-        self.index = self.rng.choice(self.index_array, 1)[0]
+        if self.type_env is None:
+            self.index = self.rng.choice(self.index_array, 1)[0]
+        else:
+            self.index += 1
 
         reward = self.reward_list[0] if action == answer else self.reward_list[1]
 
