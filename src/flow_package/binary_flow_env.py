@@ -34,6 +34,7 @@ class BinaryFlowEnv(gym.Env):
         self.input_labels = input_type.input_labels
         # self.normal_label = input_type.normal_label
         self.reward_list = input_type.reward_list
+        self.type_env = input_type.type_env
 
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(
