@@ -28,7 +28,7 @@ class MultipleFlowEnv(gym.Env):
         self.input_labels = input_type.input_labels
         self.reward_list = input_type.reward_list
 
-        self.action_space = spaces.Discrete(len(self.reward_list))
+        self.action_space = spaces.Discrete(len(self.input_labels.unique()))
         self.observation_space = spaces.Box(
             low=0, high=1, shape=(len(self.input_features.columns),), dtype=np.float32
         )
