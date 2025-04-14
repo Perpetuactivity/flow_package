@@ -44,6 +44,7 @@ class MultipleFlowEnv(gym.Env):
 
         if self.type_env is None:
             self.index = self.rng.choice(self.index_array, 1)[0]
+            self.flow_type = 0
         else:
             self.index = 0
 
@@ -56,6 +57,7 @@ class MultipleFlowEnv(gym.Env):
 
         if self.type_env is None:
             self.index = self.rng.choice(self.index_array, 1)[0]
+            self.flow_type = 0
         else:
             self.index = 0
 
@@ -68,7 +70,13 @@ class MultipleFlowEnv(gym.Env):
         answer = self.input_labels.iloc[self.index]
         
         if self.type_env is None:
-            self.index = self.rng.choice(self.index_array, 1)[0]
+            while True:
+                self.index = self.rng.choice(self.index_array, 1)[0]
+                if self.input_labels.iloc[self.index] == self.flow_type:
+                    break
+            
+            self.flow_type = (self.flow_type + 1) % self.action_space.n
+            
         else:
             self.index += 1
 
@@ -98,7 +106,10 @@ class MultipleFlowEnv(gym.Env):
             self.index = 0
             observation = self.input_features.iloc[self.index].values
         
-        terminated = random.random() < 0.01
+        if self.type_env is not None:
+            terminated = self.index == 0
+        else:
+            terminated = random.random() < 0.01
 
         return observation, reward, terminated, False, info
     
