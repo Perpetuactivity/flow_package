@@ -68,10 +68,6 @@ class BinaryFlowEnv(gym.Env):
     def step(self, action):
         answer = self.input_labels.iloc[self.index]
 
-        # if answer == self.normal_label:
-        #     answer = 0
-        # else:
-        #     answer = 1
         if self.type_env is None:
             self.index = self.rng.choice(self.index_array, 1)[0]
         else:
