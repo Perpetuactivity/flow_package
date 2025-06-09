@@ -4,7 +4,6 @@ from .const import *
 from .preprocessing import *
 from .utils import *
 
-
 # classify network flow as normal or attack
 register(
     id='BinaryFlow-v1',
