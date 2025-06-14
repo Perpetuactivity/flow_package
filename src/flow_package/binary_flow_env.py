@@ -12,7 +12,6 @@ class InputType:
             self,
             input_features,
             input_labels,
-            # normal_label,
             reward_list,
             type_env=None
     ):
@@ -21,7 +20,6 @@ class InputType:
 
         self.input_features = input_features
         self.input_labels = input_labels
-        # self.normal_label = normal_label
         self.reward_list = reward_list
         self.type_env = type_env
 
@@ -32,7 +30,6 @@ class BinaryFlowEnv(gym.Env):
 
         self.input_features = input_type.input_features
         self.input_labels = input_type.input_labels
-        # self.normal_label = input_type.normal_label
         self.reward_list = input_type.reward_list
         self.type_env = input_type.type_env
 
