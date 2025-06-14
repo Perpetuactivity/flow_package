@@ -2,7 +2,7 @@ from gymnasium import spaces
 import gymnasium as gym
 import numpy as np
 
-from src.flow_package.preprocessing import normalization
+from .preprocessing import normalization
 
 class InputType:
     def __init__(
