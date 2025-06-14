@@ -2,7 +2,7 @@ from gymnasium import spaces
 import gymnasium as gym
 import numpy as np
 
-from src.flow_package.preprocessing import normalization
+from .preprocessing import normalization
 
 class InputType:
     def __init__(
@@ -10,12 +10,14 @@ class InputType:
         data,
         sample_size=1000,
         is_test=False,
+        normalize_exclude_columns=[],
         exclude_columns=[],
         reward_list=[1.0, -1.0]
     ):
         self.data = data
         self.sample_size = sample_size
         self.is_test = is_test
+        self.normalize_exclude_columns = normalize_exclude_columns
         self.exclude_columns = exclude_columns
         self.reward_list = reward_list
 
@@ -30,6 +32,7 @@ class MultiFlowEnv(gym.Env):
         self.data = input_type.data
         self.sample_size = input_type.sample_size
         self.is_test = input_type.is_test
+        self.normalize_exclude_columns = input_type.normalize_exclude_columns
         self.exclude_columns = input_type.exclude_columns + ["Label"]
         self.reward_list = input_type.reward_list
         self.action_space = spaces.Discrete(2)
@@ -53,7 +56,10 @@ class MultiFlowEnv(gym.Env):
                 "features": buf.drop(columns=self.exclude_columns),
                 "labels": buf["Label"]
             }
-        self.sample_df["features"] = normalization(self.sample_df["features"])
+        self.sample_df["features"] = normalization(
+            self.sample_df["features"],
+            exclude_columns=self.normalize_exclude_columns
+        )
         self.index = 0
 
         return self.sample_df["features"].iloc[self.index].values
