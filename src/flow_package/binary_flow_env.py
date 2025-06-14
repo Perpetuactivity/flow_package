@@ -50,6 +50,7 @@ class BinaryFlowEnv(gym.Env):
                 "features": self.data.drop(columns=self.exclude_columns),
                 "labels": self.data["Label"]
             }
+            self.sample_size = len(self.sample_df["features"])
         else:
             buf = self.data.sample(n=self.sample_size)
             self.sample_df = {
