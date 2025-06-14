@@ -37,7 +37,7 @@ class BinaryFlowEnv(gym.Env):
         self.reward_list = input_type.reward_list
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(len(self.data.columns),),
+            low=0, high=1, shape=(len(self.data.columns) - len(self.exclude_columns),),
             dtype=np.float32
         )
 
