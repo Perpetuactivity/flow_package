@@ -35,7 +35,7 @@ class MultiFlowEnv(gym.Env):
         self.normalize_exclude_columns = input_type.normalize_exclude_columns
         self.exclude_columns = input_type.exclude_columns + ["Label"]
         self.reward_list = input_type.reward_list
-        self.action_space = spaces.Discrete(2)
+        self.action_space = spaces.Discrete(self.data["Label"].unique().size)
         self.observation_space = spaces.Box(
             low=0, high=1, shape=(len(self.data.columns),),
             dtype=np.float32
