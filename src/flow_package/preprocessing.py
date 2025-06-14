@@ -7,6 +7,9 @@ CONST = Const()
 
 
 def calcurate(p: pd.Series, slide: bool = False, sliding_window: int = 1000):
+    if p.unique().size == 1:
+        return p
+    
     if not slide or (slide and len(p) < sliding_window):
         normalized = (p - p.min()) / (p.max() - p.min())
         normalized = normalized.replace([np.inf, -np.inf], np.nan)
