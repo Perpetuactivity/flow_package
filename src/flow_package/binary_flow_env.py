@@ -1,104 +1,104 @@
-import gymnasium as gym
 from gymnasium import spaces
+import gymnasium as gym
 import numpy as np
-import random
 
-ERROR_LABEL = "The length of the reward_list is " \
-    "not the same as the number of labels"
-
+from .preprocessing import normalization
 
 class InputType:
     def __init__(
-            self,
-            input_features,
-            input_labels,
-            # normal_label,
-            reward_list,
-            type_env=None
+        self,
+        data,
+        sample_size=1000,
+        is_test=False,
+        normalize_exclude_columns=[],
+        exclude_columns=[],
+        reward_list=[1.0, -1.0]
     ):
-        if len(reward_list) != 2:
-            raise ValueError(ERROR_LABEL)
-
-        self.input_features = input_features
-        self.input_labels = input_labels
-        # self.normal_label = normal_label
+        self.data = data
+        self.sample_size = sample_size
+        self.is_test = is_test
+        self.normalize_exclude_columns = normalize_exclude_columns
+        self.exclude_columns = exclude_columns
         self.reward_list = reward_list
-        self.type_env = type_env
 
 
 class BinaryFlowEnv(gym.Env):
-    def __init__(self, input_type: InputType):
+    def __init__(
+        self,
+        input_type: InputType
+    ):
         super(BinaryFlowEnv, self).__init__()
 
-        self.input_features = input_type.input_features
-        self.input_labels = input_type.input_labels
-        # self.normal_label = input_type.normal_label
+        self.data = input_type.data
+        self.sample_size = input_type.sample_size
+        self.is_test = input_type.is_test
+        self.normalize_exclude_columns = input_type.normalize_exclude_columns
+        self.exclude_columns = input_type.exclude_columns + ["Label"]
         self.reward_list = input_type.reward_list
-        self.type_env = input_type.type_env
-
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(len(self.input_features.columns),),
+            low=0, high=1, shape=(len(self.data.columns),),
             dtype=np.float32
         )
 
-        self.rng = np.random.default_rng(0)
-
-        self.state = {}
-        self.data_len = len(self.input_features)
-        self.index_array = np.arange(self.data_len)
-        if self.type_env is None:
-            self.index = self.rng.choice(self.index_array, 1)[0]
-        else:
-            self.index = 0
-
+        self.sample_df = None
+        self.index = 0
+    
     def reset(self):
-        super().reset()
-
-        self.state = {}
-        self.data_len = len(self.input_features)
-        self.index_array = np.arange(self.data_len)
-        self.index = self.rng.choice(self.index_array, 1)[0]
-
-        np.delete(self.index_array, self.index)
-        self.state = self.input_features.iloc[self.index].values
-
-        return self.state
-
-    def step(self, action):
-        answer = self.input_labels.iloc[self.index]
-
-        if self.type_env is None:
-            self.index = self.rng.choice(self.index_array, 1)[0]
+        if self.is_test:
+            self.sample_df = {
+                "features": self.data.drop(columns=self.exclude_columns),
+                "labels": self.data["Label"]
+            }
         else:
+            buf = self.data.sample(n=self.sample_size)
+            self.sample_df = {
+                "features": buf.drop(columns=self.exclude_columns),
+                "labels": buf["Label"]
+            }
+        self.sample_df["features"] = normalization(
+            self.sample_df["features"],
+            categorical_columns=self.normalize_exclude_columns
+        )
+        self.index = 0
+
+        return self.sample_df["features"].iloc[self.index].values
+    
+    def step(self, action):
+        answer = self.sample_df["labels"].iloc[self.index]
+
+        if self.index == self.sample_size - 1:
+            terminated = True
+            observation = None
+        else:
+            terminated = False
             self.index += 1
+            observation = self.sample_df["features"].iloc[self.index].values
 
-        reward = self.reward_list[int(action != answer)]
+        reward = self.reward_list[int(action == answer)]
 
-        # TP, FP, TN, FN
-        matrix_position = (action, answer)
+        """
+        | action\\answer | 0 | 1 |
+        | ------------- | --- | --- |
+        | 0 | TN | FP |
+        | 1 | FN | TP |
+
+        [
+            [TN, FP],
+            [FN, TP]
+        ]
+        """
 
         info = {
-            "matrix_position": matrix_position,
+            "matrix_position": (action, answer),
             "action": action,
             "answer": answer
         }
 
-        try:
-            observation = self.input_features.iloc[self.index].values
-        except IndexError:
-            self.index = 0
-            observation = self.input_features.iloc[self.index].values
-
-        if self.type_env is not None:
-            terminated = self.index == 0
-        else:
-            terminated = random.random() < 0.01
-
         return observation, reward, terminated, False, info
-
+    
     def render(self, mode="human"):
         pass
-
+    
     def close(self):
         pass

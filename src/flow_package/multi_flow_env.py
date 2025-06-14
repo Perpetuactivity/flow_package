@@ -1,120 +1,106 @@
-import gymnasium as gym
 from gymnasium import spaces
+import gymnasium as gym
 import numpy as np
-import random
 
+from .preprocessing import normalization
 
 class InputType:
     def __init__(
-            self,
-            input_features,
-            input_labels,
-            reward_list,
-            type_env=None
+        self,
+        data,
+        sample_size=1000,
+        is_test=False,
+        normalize_exclude_columns=[],
+        exclude_columns=[],
+        reward_list=[1.0, -1.0]
     ):
-        # label_num = len(input_labels.unique())
-        # if len(reward_list) != label_num or len(reward_list[0]) != label_num:
-        #     raise ValueError("The length of the reward_list is not the same as the number '{}' of labels.".format(label_num))
-
-        self.input_features = input_features
-        self.input_labels = input_labels
+        self.data = data
+        self.sample_size = sample_size
+        self.is_test = is_test
+        self.normalize_exclude_columns = normalize_exclude_columns
+        self.exclude_columns = exclude_columns
         self.reward_list = reward_list
-        self.type_env = type_env
 
 
-class MultipleFlowEnv(gym.Env):
-    def __init__(self, input_type: InputType):
-        super(MultipleFlowEnv, self).__init__()
+class MultiFlowEnv(gym.Env):
+    def __init__(
+        self,
+        input_type: InputType
+    ):
+        super(MultiFlowEnv, self).__init__()
 
-        self.input_features = input_type.input_features
-        self.input_labels = input_type.input_labels
+        self.data = input_type.data
+        self.sample_size = input_type.sample_size
+        self.is_test = input_type.is_test
+        self.normalize_exclude_columns = input_type.normalize_exclude_columns
+        self.exclude_columns = input_type.exclude_columns + ["Label"]
         self.reward_list = input_type.reward_list
-        self.type_env = input_type.type_env
-
-        self.action_space = spaces.Discrete(len(self.input_labels.unique()))
+        self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(len(self.input_features.columns),), dtype=np.float32
+            low=0, high=1, shape=(len(self.data.columns),),
+            dtype=np.float32
         )
 
-        self.rng = np.random.default_rng(0)
-
-        self.state = {}
-        self.data_len = len(self.input_features)
-        self.index_array = np.arange(self.data_len)
-
-        if self.type_env is None:
-            self.index = self.rng.choice(self.index_array, 1)[0]
-            self.flow_type = 0
-        else:
-            self.index = 0
-
+        self.sample_df = None
+        self.index = 0
+    
     def reset(self):
-        super().reset()
-
-        self.state = {}
-        self.data_len = len(self.input_features)
-        self.index_array = np.arange(self.data_len)
-
-        if self.type_env is None:
-            self.index = self.rng.choice(self.index_array, 1)[0]
-            self.flow_type = 0
+        if self.is_test:
+            self.sample_df = {
+                "features": self.data.drop(columns=self.exclude_columns),
+                "labels": self.data["Label"]
+            }
         else:
-            self.index = 0
+            buf = self.data.sample(n=self.sample_size)
+            self.sample_df = {
+                "features": buf.drop(columns=self.exclude_columns),
+                "labels": buf["Label"]
+            }
+        self.sample_df["features"] = normalization(
+            self.sample_df["features"],
+            categorical_columns=self.normalize_exclude_columns
+        )
+        self.index = 0
 
-        np.delete(self.index_array, self.index)
-        self.state = self.input_features.iloc[self.index].values
-
-        return self.state
+        return self.sample_df["features"].iloc[self.index].values
     
     def step(self, action):
-        answer = self.input_labels.iloc[self.index]
-        
-        if self.type_env is None:
-            while True:
-                self.index = self.rng.choice(self.index_array, 1)[0]
-                if self.input_labels.iloc[self.index] == self.flow_type:
-                    break
-            
-            self.flow_type = (self.flow_type + 1) % self.action_space.n
-            
+        answer = self.sample_df["labels"].iloc[self.index]
+
+        if self.index == self.sample_size - 1:
+            terminated = True
+            observation = None
         else:
+            terminated = False
             self.index += 1
+            observation = self.sample_df["features"].iloc[self.index].values
 
-        reward = self.reward_list[0] if action == answer else self.reward_list[1]
+        reward = self.reward_list[int(action == answer)]
 
-        # TP, FP, TN, FN
-        if action == answer:
-            if action == 1:
-                matrix_position = (1, 1)
-            else:
-                matrix_position = (0, 0)
-        else:
-            if action == 1:
-                matrix_position = (1, 0)
-            else:
-                matrix_position = (0, 1)
-        
+        """
+        | action\\answer | 0 | other | true |
+        | ------------- | --- | --- | --- |
+        | 0 | TN | FP | FN |
+        | other | FP? | x | FP? |
+        | true | FP? | FP? | TP |
+
+        [
+            [TN, FP, FN],
+            [FP, x, FP],
+            [FN, FP, TP]
+        ]
+        """
+
         info = {
-            "matrix_position": matrix_position,
+            "matrix_position": (action, answer),
             "action": action,
             "answer": answer
         }
-
-        try:
-            observation = self.input_features.iloc[self.index].values
-        except IndexError:
-            self.index = 0
-            observation = self.input_features.iloc[self.index].values
-        
-        if self.type_env is not None:
-            terminated = self.index == 0
-        else:
-            terminated = random.random() < 0.01
 
         return observation, reward, terminated, False, info
     
     def render(self, mode="human"):
         pass
-
+    
     def close(self):
         pass
