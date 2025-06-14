@@ -58,7 +58,7 @@ class BinaryFlowEnv(gym.Env):
             }
         self.sample_df["features"] = normalization(
             self.sample_df["features"],
-            exclude_columns=self.normalize_exclude_columns
+            categorical_columns=self.normalize_exclude_columns
         )
         self.index = 0
 
