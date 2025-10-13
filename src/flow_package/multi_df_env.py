@@ -64,6 +64,7 @@ class MultiDfEnv(gym.Env):
         self.render_mode = config.render_mode
 
         self.data_length = len(self.data)
+        self.max_times = self.data_length // self.window_size
         self.end = self.data_length - 1
 
         # データの特徴量数
@@ -153,7 +154,7 @@ class MultiDfEnv(gym.Env):
         self.history = []
         
         observation = self._get_observation()
-        buf = self.data_length // self.window_size
+        buf = random.randint(1, self.max_times)
         self.end = random.randint(self.window_size, self.window_size * buf)
         info = self._get_info()
         
@@ -248,7 +249,8 @@ class MultiDfEnv(gym.Env):
             'step': self.current_step,
             'total_reward': self.total_reward,
             'data_progress': self.current_step / self.end if self.end > 0 else 0,
-            'confusion_matrix_index': cm_index
+            'confusion_matrix_index': cm_index,
+            'sample_data_length': self.end,
         }
     
     def render(self):
