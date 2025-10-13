@@ -69,7 +69,7 @@ class MultiDfEnv(gym.Env):
         self.action_space = spaces.Discrete(label_unique_len)
         
         # 観測空間の定義（正規化された特徴量のウィンドウ + 追加情報）
-        obs_shape = (self.window_size * self.n_features + 4,)  # +4 for additional info
+        obs_shape = (self.window_size * self.n_features + 2,)  # +2 for additional info
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=obs_shape, dtype=np.float32
         )
