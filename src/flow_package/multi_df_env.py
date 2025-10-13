@@ -177,7 +177,7 @@ class MultiDfEnv(gym.Env):
         truncated = self.current_step - self.window_size >= self.max_steps
         
         observation = self._get_observation()
-        info = self._get_info()
+        info = self._get_info(cm_index=cm_index)
         
         return observation, reward, terminated, truncated, info
     
@@ -236,12 +236,13 @@ class MultiDfEnv(gym.Env):
         self.total_reward += reward
         return reward, (action, current_label)
     
-    def _get_info(self) -> Dict:
+    def _get_info(self, cm_index: Tuple[int, int]) -> Dict:
         """追加情報の取得"""
         return {
             'step': self.current_step,
             'total_reward': self.total_reward,
-            'data_progress': self.current_step / len(self.data) if len(self.data) > 0 else 0
+            'data_progress': self.current_step / len(self.data) if len(self.data) > 0 else 0,
+            'confusion_matrix_index': cm_index
         }
     
     def render(self):
