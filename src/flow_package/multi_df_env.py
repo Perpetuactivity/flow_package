@@ -160,9 +160,6 @@ class MultiDfEnv(gym.Env):
         
         # 行動に基づく報酬計算
         reward, cm_index = self._calculate_reward(action, current_label)
-        
-        # ポジションの更新
-        self._update_position(action, current_label)
 
         # 履歴の記録
         self.history.append({
