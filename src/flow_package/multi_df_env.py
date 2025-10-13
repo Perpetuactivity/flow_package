@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Tuple, Dict, Any, Optional
 import warnings
+import random
 from dataclasses import dataclass
 warnings.filterwarnings('ignore')
 
@@ -51,7 +52,8 @@ class MultiDfEnv(gym.Env):
         
         # データの準備
         if config.data is None:
-            self.data = self._generate_sample_data()
+            # self.data = self._generate_sample_data()
+            raise ValueError("Data must be provided in config.data")
         else:
             self.data = config.data.copy()
 
@@ -61,10 +63,12 @@ class MultiDfEnv(gym.Env):
         self.max_steps = config.max_steps
         self.render_mode = config.render_mode
 
+        self.data_length = len(self.data)
+        self.end = self.data_length - 1
+
         # データの特徴量数
         self.n_features = len(self.data.columns) - 1  # ラベル列を除く
         
-        # 行動空間の定義（0: Hold, 1: Buy, 2: Sell）
         label_unique_len = len(self.data[self.label_column].unique())
         self.action_space = spaces.Discrete(label_unique_len)
         
@@ -149,6 +153,8 @@ class MultiDfEnv(gym.Env):
         self.history = []
         
         observation = self._get_observation()
+        buf = self.data_length // self.window_size
+        self.end = random.randint(self.window_size, self.window_size * buf)
         info = self._get_info()
         
         return observation, info
@@ -173,7 +179,7 @@ class MultiDfEnv(gym.Env):
         self.current_step += 1
         
         # 終了条件の確認
-        terminated = self.current_step >= len(self.data) - 1
+        terminated = self.current_step >= self.end - 1
         truncated = self.current_step - self.window_size >= self.max_steps
         
         observation = self._get_observation()
@@ -197,7 +203,7 @@ class MultiDfEnv(gym.Env):
         
         # 追加情報（ポジション、ステップ数、総報酬、価格変化率）
         additional_info = np.array([
-            self.current_step / len(self.data),  # 正規化されたステップ数
+            self.current_step / self.end,  # 正規化されたステップ数
             self.total_reward / 100.0,  # 正規化された総報酬
         ])
         
@@ -241,7 +247,7 @@ class MultiDfEnv(gym.Env):
         return {
             'step': self.current_step,
             'total_reward': self.total_reward,
-            'data_progress': self.current_step / len(self.data) if len(self.data) > 0 else 0,
+            'data_progress': self.current_step / self.end if self.end > 0 else 0,
             'confusion_matrix_index': cm_index
         }
     
