@@ -16,3 +16,8 @@ register(
     entry_point='flow_package:MultipleFlowEnv',
 )
 
+register(
+    id='MultiFlow-v2',
+    entry_point='flow_package:MultiDfEnv',
+)
+
