@@ -236,7 +236,7 @@ class MultiDfEnv(gym.Env):
         self.total_reward += reward
         return reward, (action, current_label)
     
-    def _get_info(self, cm_index: Tuple[int, int]) -> Dict:
+    def _get_info(self, cm_index: Tuple[int, int] = ()) -> Dict:
         """追加情報の取得"""
         return {
             'step': self.current_step,
