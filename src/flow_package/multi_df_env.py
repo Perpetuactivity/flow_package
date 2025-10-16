@@ -29,6 +29,7 @@ class EnvConfig:
     normalize_method: str = 'zscore'
     # 移動ウィンドウのサイズ（normalize_method='rolling' のときに使用）
     rolling_window: int = 50
+    test_mode: bool = False  # テストモードフラグ
 
 
 class MultiDfEnv(gym.Env):
@@ -66,6 +67,7 @@ class MultiDfEnv(gym.Env):
         self.data_length = len(self.data)
         self.max_times = self.data_length // self.window_size
         self.end = self.data_length - 1
+        self.test_mode = config.test_mode
 
         # データの特徴量数
         self.n_features = len(self.data.columns) - 1  # ラベル列を除く
@@ -154,8 +156,13 @@ class MultiDfEnv(gym.Env):
         self.history = []
         
         observation = self._get_observation()
-        buf = random.randint(1, self.max_times)
-        self.end = random.randint(self.window_size, self.window_size * buf)
+
+        if self.test_mode:
+            self.end = self.data_length - 1
+        else:
+            buf = random.randint(1, self.max_times)
+            self.end = random.randint(self.window_size, self.window_size * buf)
+
         info = self._get_info()
         
         return observation, info
