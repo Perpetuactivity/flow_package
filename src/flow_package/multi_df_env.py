@@ -22,7 +22,6 @@ class EnvConfig:
     """
     data: pd.DataFrame
     label_column: str
-    window_size: int
     max_steps: int
     render_mode: Optional[str]
     # 正規化方法: 'zscore' (従来の全体平均/標準偏差での正規化) または 'rolling' (移動ウィンドウごとの z-score)
@@ -57,16 +56,15 @@ class MultiDfEnv(gym.Env):
             # self.data = self._generate_sample_data()
             raise ValueError("Data must be provided in config.data")
         else:
-            self.data = config.data.copy()
+            self.all_data = config.data.copy()
 
         self.label_column = config.label_column
+        self.data = pd.DataFrame()
 
-        self.window_size = config.window_size
         self.max_steps = config.max_steps
         self.render_mode = config.render_mode
 
         self.data_length = len(self.data)
-        self.max_times = self.data_length // self.window_size
         self.end = self.data_length - 1
         self.test_mode = config.test_mode
 
@@ -77,7 +75,7 @@ class MultiDfEnv(gym.Env):
         self.action_space = spaces.Discrete(label_unique_len)
         
         # 観測空間の定義（正規化された特徴量のウィンドウ + 追加情報）
-        obs_shape = (self.window_size * self.n_features + 2,)  # +2 for additional info
+        obs_shape = (self.n_features + 2,)  # +2 for additional info
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=obs_shape, dtype=np.float32
         )
@@ -87,6 +85,9 @@ class MultiDfEnv(gym.Env):
         self.entry_price = 0.0
         self.total_reward = 0.0
         self.history = []
+
+        self.rolling_window = config.rolling_window
+        self.normalize_method = config.normalize_method
         
         # データの正規化
         self._normalize_data()
@@ -118,6 +119,8 @@ class MultiDfEnv(gym.Env):
     
     def _normalize_data(self):
         """データを正規化"""
+        if len(self.data) == 0:
+            return
         numeric_columns = self.data.select_dtypes(include=[np.number]).columns
         if self.label_column in numeric_columns:
             numeric_columns = numeric_columns.drop(self.label_column)
@@ -151,18 +154,22 @@ class MultiDfEnv(gym.Env):
         """環境のリセット"""
         super().reset(seed=seed)
         
-        self.current_step = self.window_size
         self.entry_price = 0.0
         self.total_reward = 0.0
         self.history = []
         
-        observation = self._get_observation()
-
         if self.test_mode:
+            self.start = 0
             self.end = self.data_length - 1
         else:
-            buf = random.randint(1, self.max_times)
-            self.end = random.randint(self.window_size, self.window_size * buf)
+            self.start = random.randint(0, self.data_length - self.rolling_window - 1)
+            self.end = random.randint(self.start + self.rolling_window, self.data_length - 1)
+
+        self.current_step = self.start
+        self.data = self.all_data.iloc[self.start:self.end].reset_index(drop=True)
+        self._normalize_data()
+
+        observation = self._get_observation()
 
         info = self._get_info()
         
@@ -188,8 +195,11 @@ class MultiDfEnv(gym.Env):
         self.current_step += 1
         
         # 終了条件の確認
-        terminated = self.current_step >= self.end - 1
-        truncated = self.current_step - self.window_size >= self.max_steps
+        if self.test_mode:
+            self.end = self.data_length - 1
+        else:
+            terminated = self.current_step >= self.end - 1
+            truncated = self.current_step - self.rolling_window >= self.max_steps
         
         observation = self._get_observation()
         info = self._get_info(cm_index=cm_index)
@@ -197,22 +207,14 @@ class MultiDfEnv(gym.Env):
         return observation, reward, terminated, truncated, info
     
     def _get_observation(self) -> np.ndarray:
-        """現在の観測値を取得"""
-        if self.current_step < self.window_size:
-            # 初期化時の処理
-            window_data = self.data_normalized.iloc[:self.window_size].drop(columns=[self.label_column])
-        else:
-            # ウィンドウサイズ分のデータを取得
-            start_idx = self.current_step - self.window_size
-            end_idx = self.current_step
-            window_data = self.data_normalized.iloc[start_idx:end_idx].drop(columns=[self.label_column])
+        window_data = self.data_normalized.iloc[self.current_step].drop(columns=[self.label_column])
         
         # 数値データのみを抽出してフラット化
         numeric_data = window_data.select_dtypes(include=[np.number]).values.flatten()
         
         # 追加情報（ポジション、ステップ数、総報酬、価格変化率）
         additional_info = np.array([
-            self.current_step / self.end,  # 正規化されたステップ数
+            self.current_step / len(self.data_normalized),  # 正規化されたステップ数
             self.total_reward / 100.0,  # 正規化された総報酬
         ])
         
