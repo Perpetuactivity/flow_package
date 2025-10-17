@@ -147,7 +147,14 @@ class MultiDfEnv(gym.Env):
             for col in numeric_columns:
                 min_val = self.data[col].min()
                 max_val = self.data[col].max()
-                self.data_normalized[col] = (self.data[col] - min_val) / (max_val - min_val + 1e-8)
+                if max_val - min_val == 0:
+                    self.data_normalized[col] = 0.0
+                else:
+                    self.data_normalized[col] = (self.data[col] - min_val) / (max_val - min_val + 1e-8)
+        
+        # check NaN
+        if self.data_normalized[numeric_columns].isnull().any().any():
+            print("Warning: NaN values found in normalized data.")
 
     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[np.ndarray, Dict]:
         """環境のリセット"""
