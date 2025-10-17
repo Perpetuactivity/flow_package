@@ -32,6 +32,7 @@ class EnvConfig:
     test_mode: bool = False  # テストモードフラグ
 
 
+# TODO: NEED TO CHANGE
 class MultiDfEnv(gym.Env):
     """
     カスタムGymnasium環境：DataFrameを使った順次データ処理環境
