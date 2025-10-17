@@ -1,7 +1,7 @@
 #!/bin/sh
 MSG_FILE="$1"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-PYPROJECT="$REPO_ROOT/lib/pyproject.toml"
+PYPROJECT="$REPO_ROOT/pyproject.toml"
 SCRIPT="$REPO_ROOT/scripts/bump_version.py"
 
 COMMIT_MSG="$(cat "$MSG_FILE")"
@@ -19,9 +19,9 @@ fi
 if [ -x "$SCRIPT" ]; then
   python3 "$SCRIPT" --file "$PYPROJECT" --part "$PART" || exit 1
   uv sync || exit 1
-  git add "$PYPROJECT" "$REPO_ROOT/lib/uv.lock"
+  git add "$PYPROJECT" "$REPO_ROOT/uv.lock"
   # 変更を現在のコミットに含める（フック再実行を防ぐため --no-verify）
-  git commit --no-edit --no-verify || exit 1
+  git commit --no-edit --no-verify -m "Bump version" || exit 1
 fi
 
 

@@ -70,10 +70,10 @@ class MultiDfEnv(gym.Env):
 
         # データの特徴量数
         self.n_features = len(self.data.columns) - 1  # ラベル列を除く
-        
-        label_unique_len = len(self.data[self.label_column].unique())
+
+        label_unique_len = len(self.all_data[self.label_column].unique())
         self.action_space = spaces.Discrete(label_unique_len)
-        
+
         # 観測空間の定義（正規化された特徴量のウィンドウ + 追加情報）
         obs_shape = (self.n_features + 2,)  # +2 for additional info
         self.observation_space = spaces.Box(
