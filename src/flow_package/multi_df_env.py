@@ -64,7 +64,7 @@ class MultiDfEnv(gym.Env):
         self.max_steps = config.max_steps
         self.render_mode = config.render_mode
 
-        self.data_length = len(self.data)
+        self.data_length = len(self.all_data)
         self.end = self.data_length - 1
         self.test_mode = config.test_mode
 
