@@ -123,10 +123,11 @@ class MultiDfEnv(gym.Env):
         if self.label_column in numeric_columns:
             numeric_columns = numeric_columns.drop(self.label_column)
         self.data_normalized = self.data.copy()
+
         # 正規化方法に応じて処理
-        if getattr(self, 'normalize_method', 'zscore') == 'rolling':
+        if self.normalize_method == 'rolling':
             # 移動ウィンドウで z-score 正規化を行う
-            w = getattr(self, 'rolling_window', 50)
+            w = self.rolling_window
             # 各列ごとに rolling mean/std を計算し、(x - mean)/std を適用
             for col in numeric_columns:
                 series = self.data[col]
@@ -141,13 +142,13 @@ class MultiDfEnv(gym.Env):
                 normalized = normalized.fillna(method='ffill').fillna(method='bfill')
                 # 安全のため float にキャスト
                 self.data_normalized[col] = normalized.astype(np.float64)
-        else:
-            # 全体の平均/標準偏差での Z-score 正規化（従来の挙動）
+        elif self.normalize_method == "minmax":
+            # 全体の最小値/最大値での Min-Max 正規化
             for col in numeric_columns:
-                mean = self.data[col].mean()
-                std = self.data[col].std()
-                self.data_normalized[col] = (self.data[col] - mean) / (std + 1e-8)
-    
+                min_val = self.data[col].min()
+                max_val = self.data[col].max()
+                self.data_normalized[col] = (self.data[col] - min_val) / (max_val - min_val + 1e-8)
+
     def reset(self, seed: Optional[int] = None, options: Optional[Dict] = None) -> Tuple[np.ndarray, Dict]:
         """環境のリセット"""
         super().reset(seed=seed)
