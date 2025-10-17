@@ -89,6 +89,9 @@ class MultiDfEnv(gym.Env):
         self.rolling_window = config.rolling_window
         self.normalize_method = config.normalize_method
 
+        if self.max_steps < self.rolling_window:
+            raise ValueError("max_steps must be greater than or equal to rolling_window")
+
         
     def _generate_sample_data(self) -> pd.DataFrame:
         """サンプルの時系列データを生成"""
@@ -172,7 +175,8 @@ class MultiDfEnv(gym.Env):
             self.end = self.data_length - 1
         else:
             self.start = random.randint(0, self.data_length - self.rolling_window - 1)
-            self.end = random.randint(self.start + self.rolling_window, self.data_length - 1)
+            limit = min(self.data_length - 1, self.start + self.max_steps)
+            self.end = random.randint(self.start + self.rolling_window, limit)
 
         self.current_step = 0
         self.data = self.all_data.iloc[self.start:self.end].reset_index(drop=True)
