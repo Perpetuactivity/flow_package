@@ -70,8 +70,6 @@ class MultiDfEnv(gym.Env):
 
         # データの特徴量数
         self.n_features = len(self.all_data.columns) - 1  # ラベル列を除く
-        for col in self.all_data.columns:
-            print(col)
 
         label_unique_len = len(self.all_data[self.label_column].unique())
         self.action_space = spaces.Discrete(label_unique_len)
@@ -156,7 +154,6 @@ class MultiDfEnv(gym.Env):
                 # check NaN
                 if self.data_normalized[col].isnull().any():
                     print(f"Warning: NaN values found in normalized column {col}.")
-            print(len(self.data_normalized.columns))
         
         # check NaN
         if self.data_normalized[numeric_columns].isnull().any().any():
@@ -221,8 +218,7 @@ class MultiDfEnv(gym.Env):
     def _get_observation(self) -> np.ndarray:
         numeric_data = self.data_normalized.drop(columns=[self.label_column]).iloc[self.current_step]
         pd.options.display.max_columns = None
-        print("Numeric data columns:")
-        print(numeric_data)
+
 
         # 追加情報（ポジション、ステップ数、総報酬、価格変化率）
         additional_info = np.array([
@@ -231,7 +227,7 @@ class MultiDfEnv(gym.Env):
         ])
         
         observation = np.concatenate([numeric_data, additional_info]).astype(np.float32)
-        print(len(observation))
+
         return observation
     
     def _calculate_reward(self, action: int, current_label: float) -> float:
