@@ -69,7 +69,9 @@ class MultiDfEnv(gym.Env):
         self.test_mode = config.test_mode
 
         # データの特徴量数
-        self.n_features = len(self.data.columns) - 1  # ラベル列を除く
+        self.n_features = len(self.all_data.columns) - 1  # ラベル列を除く
+        for col in self.all_data.columns:
+            print(col)
 
         label_unique_len = len(self.all_data[self.label_column].unique())
         self.action_space = spaces.Discrete(label_unique_len)
@@ -151,6 +153,10 @@ class MultiDfEnv(gym.Env):
                     self.data_normalized[col] = 0.0
                 else:
                     self.data_normalized[col] = (self.data[col] - min_val) / (max_val - min_val + 1e-8)
+                # check NaN
+                if self.data_normalized[col].isnull().any():
+                    print(f"Warning: NaN values found in normalized column {col}.")
+            print(len(self.data_normalized.columns))
         
         # check NaN
         if self.data_normalized[numeric_columns].isnull().any().any():
@@ -213,8 +219,11 @@ class MultiDfEnv(gym.Env):
         return observation, reward, terminated, truncated, info
     
     def _get_observation(self) -> np.ndarray:
-        numeric_data = self.data_normalized.iloc[self.current_step].drop(columns=[self.label_column])
-        
+        numeric_data = self.data_normalized.drop(columns=[self.label_column]).iloc[self.current_step]
+        pd.options.display.max_columns = None
+        print("Numeric data columns:")
+        print(numeric_data)
+
         # 追加情報（ポジション、ステップ数、総報酬、価格変化率）
         additional_info = np.array([
             self.current_step / len(self.data_normalized),  # 正規化されたステップ数
@@ -222,6 +231,7 @@ class MultiDfEnv(gym.Env):
         ])
         
         observation = np.concatenate([numeric_data, additional_info]).astype(np.float32)
+        print(len(observation))
         return observation
     
     def _calculate_reward(self, action: int, current_label: float) -> float:
