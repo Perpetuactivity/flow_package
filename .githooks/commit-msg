@@ -5,7 +5,7 @@ PYPROJECT="$REPO_ROOT/pyproject.toml"
 SCRIPT="$REPO_ROOT/scripts/bump_version.py"
 
 COMMIT_MSG="$(cat "$MSG_FILE")"
-echo "Commit message: $COMMIT_MSG"
+# echo "Commit message: $COMMIT_MSG"
 
 # コミットメッセージにトークンがあるかチェック（大文字小文字無視）
 if grep -qi '\[bump-major\]' "$COMMIT_MSG"; then
@@ -21,7 +21,7 @@ if [ -x "$SCRIPT" ]; then
   uv sync || exit 1
   git add "$PYPROJECT" "$REPO_ROOT/uv.lock"
   # 変更を現在のコミットに含める（フック再実行を防ぐため --no-verify）
-  git commit --no-edit --no-verify -m "Bump version" || exit 1
+  git commit --no-edit --no-verify -m "$COMMIT_MSG" || exit 1
 fi
 
 

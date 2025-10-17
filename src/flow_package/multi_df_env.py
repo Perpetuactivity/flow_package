@@ -88,9 +88,7 @@ class MultiDfEnv(gym.Env):
 
         self.rolling_window = config.rolling_window
         self.normalize_method = config.normalize_method
-        
-        # データの正規化
-        self._normalize_data()
+
         
     def _generate_sample_data(self) -> pd.DataFrame:
         """サンプルの時系列データを生成"""
@@ -157,15 +155,15 @@ class MultiDfEnv(gym.Env):
         self.entry_price = 0.0
         self.total_reward = 0.0
         self.history = []
-        
-        if self.test_mode:
+
+        if self.test_mode or self.data_length < self.rolling_window:
             self.start = 0
             self.end = self.data_length - 1
         else:
             self.start = random.randint(0, self.data_length - self.rolling_window - 1)
             self.end = random.randint(self.start + self.rolling_window, self.data_length - 1)
 
-        self.current_step = self.start
+        self.current_step = 0
         self.data = self.all_data.iloc[self.start:self.end].reset_index(drop=True)
         self._normalize_data()
 
@@ -207,10 +205,7 @@ class MultiDfEnv(gym.Env):
         return observation, reward, terminated, truncated, info
     
     def _get_observation(self) -> np.ndarray:
-        window_data = self.data_normalized.iloc[self.current_step].drop(columns=[self.label_column])
-        
-        # 数値データのみを抽出してフラット化
-        numeric_data = window_data.select_dtypes(include=[np.number]).values.flatten()
+        numeric_data = self.data_normalized.iloc[self.current_step].drop(columns=[self.label_column])
         
         # 追加情報（ポジション、ステップ数、総報酬、価格変化率）
         additional_info = np.array([
