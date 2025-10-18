@@ -191,7 +191,7 @@ class MultiDfEnv(gym.Env):
     def step(self, action: int) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         """環境でのステップ実行"""
         # 現在のラベルを取得
-        current_label = self.data.iloc[self.current_step][self.label_column]
+        current_label = self.all_data.iloc[self.current_step][self.label_column]
         
         # 行動に基づく報酬計算
         reward, cm_index = self._calculate_reward(action, current_label)
@@ -210,8 +210,10 @@ class MultiDfEnv(gym.Env):
         # 終了条件の確認
         if self.test_mode:
             self.end = self.data_length - 1
+            terminated = self.current_step >= self.end
+            truncated = False
         else:
-            terminated = self.current_step >= self.end - 1
+            terminated = self.current_step >= len(self.data_normalized) - 1
             truncated = self.current_step - self.rolling_window >= self.max_steps
         
         observation = self._get_observation()
@@ -220,6 +222,7 @@ class MultiDfEnv(gym.Env):
         return observation, reward, terminated, truncated, info
     
     def _get_observation(self) -> np.ndarray:
+        # print("Getting observation at step:", self.current_step, " data:", len(self.data_normalized))
         numeric_data = self.data_normalized.drop(columns=[self.label_column]).iloc[self.current_step]
         pd.options.display.max_columns = None
 
