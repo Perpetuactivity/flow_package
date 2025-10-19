@@ -188,8 +188,8 @@ class MultiDfEnvV2(gym.Env):
 
         done = self.current_step >= len(self.normalized_data)
         if done:
-            # 最後のステップでも現在の観測値を返す（またはNone）
-            observation = None  # または self.normalized_data.drop(columns=[self.label_column]).iloc[self.current_step-1]
+            # 最後のステップでも現在の観測値を返す
+            observation = self.normalized_data.drop(columns=[self.label_column]).iloc[self.current_step-1]
         else:
             observation = self.normalized_data.drop(columns=[self.label_column]).iloc[self.current_step]
         reward = self._action_to_reward(action, current_label)
@@ -203,7 +203,7 @@ class MultiDfEnvV2(gym.Env):
             "matrix_position": (action, current_label)
         }
 
-        return observation, reward, done, truncated, info
+        return observation.values, reward, done, truncated, info
 
 
 class TestEnvWrapper(VectorWrapper):
