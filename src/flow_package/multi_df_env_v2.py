@@ -203,7 +203,7 @@ class MultiDfEnvV2(gym.Env):
             "matrix_position": (action, current_label)
         }
 
-        return observation.values, reward, done, truncated, info
+        return observation, reward, done, truncated, info
 
 
 class TestEnvWrapper(VectorWrapper):
